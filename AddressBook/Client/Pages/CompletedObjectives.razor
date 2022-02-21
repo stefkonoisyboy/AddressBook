@@ -1,0 +1,116 @@
+﻿@page "/objectives/completed"
+@using BrowserInterop.Extensions
+@using BrowserInterop.Geolocation
+@inject IJSRuntime jsRuntime
+@inject HttpClient httpClient
+@inject NavigationManager navigationManager
+@inject ISnackbar snackbar
+
+<body class="bg-light">
+    <MudGrid Class="mt-3">
+        <MudItem xs="8">
+            <MudText Typo="Typo.h6" Class="bg-success w-100 text-white">Избери Град</MudText>
+            <div class="w-100">
+                <RadzenDropDown TValue="int" @bind-Value="search.TownId" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                Data=@search.Towns
+                                TextProperty="Name" ValueProperty="Id" />
+            </div>
+        </MudItem>
+        <MudItem xs="4">
+            <MudButton OnClick="this.Search" Class="w-100" Variant="Variant.Filled" Color="Color.Primary">Търси по град</MudButton>
+        </MudItem>
+
+        <div class="text-center bg-blue-100 w-100 mb-3">
+            <input class="border-4 w-1/3 rounded m-6 p-6 h-8
+               border-blue-300" @bind-value="this.searchItem"
+                   @bind-value:event="oninput" placeholder="Search by title" />
+        </div>
+    </MudGrid>
+
+    <MudGrid Class="mt-3">
+        <MudItem xs="4">
+            <MudText Typo="Typo.h6" Class="bg-success w-100 text-white">Начална Дата</MudText>
+            <RadzenDatePicker TValue="DateTime" @bind-Value="filter.StartDate" Placeholder="Начална Дата" ShowTime="true" ShowSeconds="true" HoursStep="1.5" MinutesStep="5" SecondsStep="10" DateFormat="MM/dd/yyyy HH:mm" />
+        </MudItem>
+        <MudItem xs="4">
+            <MudText Typo="Typo.h6" Class="bg-success w-100 text-white">Крайна Дата</MudText>
+            <RadzenDatePicker TValue="DateTime" @bind-Value="filter.EndDate" Placeholder="Крайна Дата" ShowTime="true" ShowSeconds="true" HoursStep="1.5" MinutesStep="5" SecondsStep="10" DateFormat="MM/dd/yyyy HH:mm" />
+        </MudItem>
+
+        <MudItem xs="4">
+            <MudButton OnClick="this.Filter" Class="w-100" Variant="Variant.Filled" Color="Color.Primary">Филтрирай</MudButton>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Class="w-100 mt-3">
+        <MudList Style="box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;" Clickable="true">
+            @foreach (var place in this.FilteredPlaces)
+            {
+                <MudListItem>
+                    <MudGrid>
+                        <MudItem xs="2">
+                            @if (string.IsNullOrWhiteSpace(place.PlacePhoto))
+                            {
+                                <img style="max-width: 100%; height: auto; border-radius: 50%; vertical-align: middle;" src="https://tse1.mm.bing.net/th?id=OIF.%2bIu9QSA1EQpqAYLCvZmA5A&pid=Api&P=0&w=300&h=300" alt="noPhoto" />
+                            }
+                            else
+                            {
+                                <img style="max-width: 100%; height: auto; border-radius: 50%; vertical-align: middle;" src="@place.PlacePhoto" alt="placePhoto" />
+                            }
+                        </MudItem>
+                        <MudItem xs="4">
+                            <MudText>@place.PlaceName</MudText>
+                            <MudText Class="text-black-50">@place.PlaceTown</MudText>
+                            <MudText Class="text-black-50">@place.PlaceGroup</MudText>
+                        </MudItem>
+                        <MudItem xs="2">
+                            <MudButton OnClick="() => this.NavigateToDetails(place.Id)" Variant="Variant.Filled" Color="Color.Primary">Виж Детайли</MudButton>
+                        </MudItem>
+                    </MudGrid>
+                </MudListItem>
+                <MudDivider></MudDivider>
+            }
+        </MudList>
+    </MudPaper>
+</body>
+
+@code {
+    private IEnumerable<AllObjectivesInPeriodViewModel> viewModel = new List<AllObjectivesInPeriodViewModel>();
+    private SearchByTownInputModel search = new SearchByTownInputModel();
+    private FilterObjectivesInputModel filter = new FilterObjectivesInputModel();
+    private string searchItem = "";
+
+    private WindowNavigatorGeolocation geolocationWrapper;
+    private GeolocationPosition currentPosition = new GeolocationPosition();
+    private List<GeolocationPosition> positionHistory = new List<GeolocationPosition>();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        var window = await this.jsRuntime.Window();
+        var navigator = await window.Navigator();
+        this.geolocationWrapper = navigator.Geolocation;
+
+        this.search = await this.httpClient.GetFromJsonAsync<SearchByTownInputModel>("Search/GetTowns");
+        this.viewModel = await this.httpClient.GetFromJsonAsync<IEnumerable<AllObjectivesInPeriodViewModel>>("Objectives/GetAll");
+    }
+
+    List<AllObjectivesInPeriodViewModel> FilteredPlaces => this.viewModel.Where(
+            place => place.PlaceName.ToLower().Contains(this.searchItem.ToLower())).ToList();
+
+    async Task Search()
+    {
+        this.viewModel = await this.httpClient.GetFromJsonAsync<IEnumerable<AllObjectivesInPeriodViewModel>>($"Objectives/GetAllByTownId/{this.search.TownId}");
+    }
+
+    void Filter()
+    {
+        this.viewModel = this.viewModel.Where(o => o.VisitedOn >= this.filter.StartDate && o.VisitedOn <= this.filter.EndDate);
+    }
+
+    void NavigateToDetails(int id)
+    {
+        this.navigationManager.NavigateTo($"/places/details/{id}");
+    }
+}
+

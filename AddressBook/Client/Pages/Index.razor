@@ -1,0 +1,297 @@
+﻿@page "/"
+@using BrowserInterop.Extensions
+@using BrowserInterop.Geolocation
+@inject IJSRuntime jsRuntime
+@inject HttpClient httpClient
+@inject NavigationManager navigationManager
+@inject ISnackbar snackbar
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+<body class="bg-light">
+    <MudDialog @bind-IsVisible="visible">
+        <TitleContent>
+            Добави Обект
+            <MudDivider />
+        </TitleContent>
+        <DialogContent>
+            <MudContainer Style="max-height: 500px; overflow-y: scroll;">
+                <EditForm Model="@input" OnValidSubmit="Submit">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+                    <MudCard>
+                        <MudCardContent>
+
+                            <MudText Typo="Typo.h6" Class="bg-success w-100 text-white">Снимка</MudText>
+
+                            @if (input.Photo != null)
+                            {
+                                <img src="@input.Photo" alt="profile" />
+                            }
+
+                            <div class="form-row">
+                                <div class="form-group col-md-10 control-section">
+                                    <SfUploader ID="UploadFiles" AllowedExtensions=".png,.jpeg,.jpg">
+                                        <UploaderEvents ValueChange="OnChange" OnRemove="OnRemove"></UploaderEvents>
+                                        <UploaderTemplates>
+                                            <Template Context="HttpContext">
+                                                <table>
+                                                    <tr>
+                                                        <td>
+                                                            <img class="upload-image" alt="Preview Image @(HttpContext.Name)"
+                                                                 src="@(files.Count > 0 ? files.Where(item=>item.Name == HttpContext.Name)?.FirstOrDefault()?.Path : string.Empty)">
+                                                        </td>
+                                                        <td>
+                                                            <div style="padding: 7px;">
+                                                                <h5 title="@(HttpContext.Name)">@(HttpContext.Name)</h5>
+                                                                <i>@(HttpContext.Size) Bytes</i>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                                <span class="e-icons e-file-remove-btn remove" id="removeIcon" title="Remove"></span>
+                                            </Template>
+                                        </UploaderTemplates>
+                                    </SfUploader>
+                                </div>
+                            </div>
+
+                            <MudText Typo="Typo.h6" Class="bg-success w-100 text-white">Име</MudText>
+                            <MudTextField Label="Име" Placeholder="Име" HelperText="Max. 30 символа"
+                                          @bind-Value="input.Name" For="@(() => input.Name)" />
+                            <MudText Typo="Typo.h6" Class="bg-success w-100 text-white">Адрес</MudText>
+                            <MudGrid>
+                                <MudItem xs="6">
+                                    <MudTextField Label="Дължина" Placeholder="Дължина"
+                                                  @bind-Value="input.Longitude" For="@(() => input.Longitude)" />
+                                    <MudTextField Label="Ширина" Placeholder="Ширина"
+                                                  @bind-Value="input.Latitude" For="@(() => input.Latitude)" />
+                                </MudItem>
+                                <MudItem xs="6">
+                                    <MudButton OnClick="this.GetCoordinates" Variant="Variant.Filled" Color="Color.Info" Class="w-100 mt-2">Вземи текущи координати</MudButton>
+                                </MudItem>
+                            </MudGrid>
+                            <MudText Typo="Typo.h6" Class="bg-success w-100 text-white">Телефон</MudText>
+                            <MudTextField Label="Телефон" Placeholder="Телефон"
+                                          @bind-Value="input.Phone" For="@(() => input.Phone)" />
+                            <MudText Typo="Typo.h6" Class="bg-success w-100 text-white">Имейл</MudText>
+                            <MudTextField Label="Имейл" Placeholder="Имейл"
+                                          @bind-Value="input.Email" For="@(() => input.Email)" />
+                            <MudText Typo="Typo.h6" Class="bg-success w-100 text-white">Бележки</MudText>
+                            <MudTextField Label="Бележки"
+                                          @bind-Value="input.Notes" For="@(() => input.Notes)" />
+                            <MudText Typo="Typo.h6" Class="bg-success w-100 text-white">Избери Град</MudText>
+                            <RadzenDropDown TValue="int" @bind-Value="input.TownId" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                            Data=@input.Towns
+                                            TextProperty="Name" ValueProperty="Id" />
+                            <MudText Typo="Typo.h6" Class="bg-success w-100 text-white">Избери Категория</MudText>
+                            <RadzenDropDown TValue="int" @bind-Value="input.GroupId" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                            Data=@input.Groups
+                                            TextProperty="Name" ValueProperty="Id" />
+
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudGrid>
+                                <MudItem xs="2">
+                                    <MudButton OnClick="this.Cancel" Variant="Variant.Filled" Color="Color.Default" Class="ml-auto">Cancel</MudButton>
+                                </MudItem>
+                                <MudItem xs="6"></MudItem>
+                                <MudItem xs="2">
+                                    <MudButton ButtonType="MudBlazor.ButtonType.Submit" Variant="Variant.Filled" Color="Color.Success" Class="ml-auto">Submit</MudButton>
+                                </MudItem>
+                            </MudGrid>
+                        </MudCardActions>
+                    </MudCard>
+                </EditForm>
+            </MudContainer>
+        </DialogContent>
+    </MudDialog>
+
+    <MudGrid>
+        <MudItem xs="3"></MudItem>
+        <MudItem xs="6">
+            <MudButton OnClick="this.OpenDialog" Variant="Variant.Filled" Color="Color.Primary" Class="w-100">Добави Обект</MudButton>
+        </MudItem>
+        <MudItem xs="3"></MudItem>
+    </MudGrid>
+
+    <MudGrid Class="mt-3">
+        <MudItem xs="8">
+            <MudText Typo="Typo.h6" Class="bg-success w-100 text-white">Избери Град</MudText>
+            <div class="w-100">
+                <RadzenDropDown TValue="int" @bind-Value="search.TownId" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                Data=@search.Towns
+                                TextProperty="Name" ValueProperty="Id" />
+            </div>
+        </MudItem>
+        <MudItem xs="4">
+            <MudButton OnClick="this.Search" Class="w-100" Variant="Variant.Filled" Color="Color.Primary">Търси по град</MudButton>
+        </MudItem>
+
+        <div class="text-center bg-blue-100 w-100 mb-3">
+            <input class="border-4 w-1/3 rounded m-6 p-6 h-8
+               border-blue-300" @bind-value="this.searchItem"
+                   @bind-value:event="oninput" placeholder="Search by title" />
+        </div>
+    </MudGrid>
+
+    <MudPaper Class="w-100 mt-3">
+        <MudList Style="box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;" Clickable="true">
+            @foreach (var place in this.FilteredPlaces.Where(p => !p.IsCompleted))
+            {
+                <MudListItem>
+                    <MudGrid>
+                        <MudItem xs="2">
+                            @if (string.IsNullOrWhiteSpace(place.Photo))
+                            {
+                                <img style="max-width: 100%; height: auto; border-radius: 50%; vertical-align: middle;" src="https://tse1.mm.bing.net/th?id=OIF.%2bIu9QSA1EQpqAYLCvZmA5A&pid=Api&P=0&w=300&h=300" alt="noPhoto" />
+                            }
+                            else
+                            {
+                                <img style="max-width: 100%; height: auto; border-radius: 50%; vertical-align: middle;" src="@place.Photo" alt="placePhoto" />
+                            }
+                        </MudItem>
+                        <MudItem xs="4">
+                            <MudText>@place.Name</MudText>
+                            <MudText Class="text-black-50">@place.Town</MudText>
+                            <MudText Class="text-black-50">@place.Group</MudText>
+                        </MudItem>
+                        <MudItem xs="2">
+                            <MudButton OnClick="() => this.NavigateToDetails(place.Id)" Variant="Variant.Filled" Color="Color.Primary">Виж Детайли</MudButton>
+                        </MudItem>
+                        <MudItem xs="2">
+                            <MudButton OnClick="() => this.CreateObjective(place.Id)" Variant="Variant.Filled" Color="Color.Success">Маркирай като завършено</MudButton>
+                        </MudItem>
+                    </MudGrid>
+                </MudListItem>
+                <MudDivider></MudDivider>
+            }
+        </MudList>
+    </MudPaper>
+</body>
+
+@code {
+    private IEnumerable<AllPlacesByViewModel> viewModel = new List<AllPlacesByViewModel>();
+    private CreatePlaceInputModel input = new CreatePlaceInputModel();
+    private SearchByTownInputModel search = new SearchByTownInputModel();
+    private CreateObjectiveInputModel objectiveInput = new CreateObjectiveInputModel();
+    private string searchItem = "";
+
+    private WindowNavigatorGeolocation geolocationWrapper;
+    private GeolocationPosition currentPosition = new GeolocationPosition();
+    private List<GeolocationPosition> positionHistory = new List<GeolocationPosition>();
+
+    private bool visible;
+    private void OpenDialog() => this.visible = true;
+    private void Cancel() => this.visible = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var window = await this.jsRuntime.Window();
+        var navigator = await window.Navigator();
+        this.geolocationWrapper = navigator.Geolocation;
+
+        this.input = await this.httpClient.GetFromJsonAsync<CreatePlaceInputModel>("Places/Create");
+        this.search = await this.httpClient.GetFromJsonAsync<SearchByTownInputModel>("Search/GetTowns");
+        this.viewModel = await this.httpClient.GetFromJsonAsync<IEnumerable<AllPlacesByViewModel>>("Places/GetAll");
+    }
+
+    List<AllPlacesByViewModel> FilteredPlaces => this.viewModel.Where(
+            place => place.Name.ToLower().Contains(this.searchItem.ToLower())).ToList();
+
+    public MultipartFormDataContent content;
+    public string responseStr;
+    public HttpResponseMessage filepath { get; set; }
+    List<FileInfo> files = new List<FileInfo>();
+
+    public class FileInfo
+    {
+        public string Path { get; set; }
+        public string Name { get; set; }
+        public double Size { get; set; }
+    }
+
+    public void OnChange(Syncfusion.Blazor.Inputs.UploadChangeEventArgs args)
+    {
+        files = new List<FileInfo>();
+        foreach (var file in args.Files)
+        {
+            var pathToSave = Path.Combine(Directory.GetCurrentDirectory(), "Images");
+            var fullPath = Path.Combine(pathToSave, file.FileInfo.Name);
+            byte[] bytes = file.Stream.ToArray();
+            string base64 = Convert.ToBase64String(bytes);
+            files.Add(new FileInfo() { Path = @"data:image/" + file.FileInfo.Type + ";base64," + base64, Name = file.FileInfo.Name, Size = file.FileInfo.Size });
+            content = new MultipartFormDataContent {
+                    { new ByteArrayContent(file.Stream.GetBuffer()), "\"upload\"", file.FileInfo.Name }
+                };
+        }
+    }
+
+    public void OnRemove(RemovingEventArgs args)
+    {
+        foreach (var removeFile in args.FilesData)
+        {
+            if (File.Exists(Path.Combine(@"\Images", removeFile.Name)))
+            {
+                File.Delete(Path.Combine(@"\Images\", removeFile.Name));
+            }
+        }
+    }
+
+    async Task Submit()
+    {
+        string path = files.FirstOrDefault()?.Path;
+        if (path != null)
+        {
+            input.Photo = path;
+        }
+
+        HttpResponseMessage responseMessage = await this.httpClient.PostAsJsonAsync<CreatePlaceInputModel>("Places/Create", input);
+        this.input = await this.httpClient.GetFromJsonAsync<CreatePlaceInputModel>("Places/Create");
+        this.search = await this.httpClient.GetFromJsonAsync<SearchByTownInputModel>("Search/GetTowns");
+        this.viewModel = await this.httpClient.GetFromJsonAsync<IEnumerable<AllPlacesByViewModel>>("Places/GetAll");
+
+        this.Cancel();
+
+        if (responseMessage.IsSuccessStatusCode)
+        {
+            this.snackbar.Add("Твоят обект беше създаден успешно!", Severity.Success);
+        }
+    }
+
+    async Task Search()
+    {
+        this.viewModel = await this.httpClient.GetFromJsonAsync<IEnumerable<AllPlacesByViewModel>>($"Places/GetAllByTownId/{this.search.TownId}");
+    }
+
+    async Task CreateObjective(int placeId)
+    {
+        this.objectiveInput.PlaceId = placeId;
+        HttpResponseMessage responseMessage = await this.httpClient.PostAsJsonAsync<CreateObjectiveInputModel>("Objectives/Create", objectiveInput);
+        this.input = await this.httpClient.GetFromJsonAsync<CreatePlaceInputModel>("Places/Create");
+        this.search = await this.httpClient.GetFromJsonAsync<SearchByTownInputModel>("Search/GetTowns");
+        this.viewModel = await this.httpClient.GetFromJsonAsync<IEnumerable<AllPlacesByViewModel>>("Places/GetAll");
+
+        if (responseMessage.IsSuccessStatusCode)
+        {
+            this.snackbar.Add("Твоят обект беше маркиран като завършен успешно!", Severity.Success);
+        }
+    }
+
+    async Task GetCoordinates()
+    {
+        this.currentPosition = (await this.geolocationWrapper.GetCurrentPosition(new PositionOptions()
+        {
+            EnableHighAccuracy = true,
+            MaximumAgeTimeSpan = TimeSpan.FromHours(1),
+            TimeoutTimeSpan = TimeSpan.FromMinutes(1),
+        })).Location;
+
+        this.input.Longitude = this.currentPosition.Coords.Longitude;
+        this.input.Latitude = this.currentPosition.Coords.Latitude;
+    }
+
+    void NavigateToDetails(int id)
+    {
+        this.navigationManager.NavigateTo($"/places/details/{id}");
+    }
+}
